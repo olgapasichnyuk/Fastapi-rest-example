@@ -1,4 +1,7 @@
+from typing import List
+
 from fastapi import FastAPI, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -10,7 +13,7 @@ app = FastAPI()
 
 @app.get('/')
 def read_root():
-    return{"message": "all right!"}
+    return {"message": "all right!"}
 
 
 @app.get('/api/healthchecker')
@@ -29,8 +32,26 @@ def healthchecker(db: Session = Depends(get_db)):
                             detail="Error connection to DB")
 
 
-@app.get('/items')
+class ResponseItem(BaseModel):
+    id: int
+    name: str
+    size: int
+    description: str
+
+    class Config:
+        orm_mode = True
+
+
+@app.get('/items', response_model=List[ResponseItem])
 async def get_items(db: Session = Depends(get_db)):
     items = db.query(Item).all()
     return items
 
+
+@app.get('/items/{item_id}', response_model=ResponseItem)
+async def get_item(item_id: int, db: Session = Depends(get_db)):
+    item = db.query(Item).filter_by(id=item_id).first()
+    if item is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail="Not found")
+    return item
